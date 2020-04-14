@@ -56,7 +56,7 @@ while True:
         driver.switch_to.window(driver.window_handles[0])
     
     time.sleep(1)
-    nextButton = driver.find_element_by_id('bandListAlpha_next')
+    nextButton = driver.find_element_by_id('bandListGenre_next')
     nextButton.click()
     time.sleep(5)
 
