@@ -44,7 +44,7 @@ while True:
             bandName = bandName.replace("/", "_")
             print(bandName)
             r = requests.get(logoSrc)
-            outfile = os.getcwd() + '/../dataset/' + bandName
+            outfile = os.getcwd() + '/../../dataset/' + bandName
             if bandName == bandNameOld:
                 counter += 1
                 outfile = outfile + str(counter)
