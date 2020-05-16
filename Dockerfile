@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:1.15.0-gpu-py3
+FROM tensorflow/tensorflow:latest-gpu
 ENV LANG C.UTF-8
 
 ENV APT_INSTALL="apt-get install -y --no-install-recommends"
@@ -34,8 +34,10 @@ RUN $PIP_INSTALL \
 # Project dependencies
 RUN $APT_INSTALL libsndfile1 -y \
   && $PIP_INSTALL \
+    sklearn \
+    soundfile \
     Pillow \
-    matplotlib \
+    matplotlib
 
 # Config & cleanup
 RUN ldconfig \
@@ -43,8 +45,4 @@ RUN ldconfig \
   && apt-get autoremove \
   && rm -rf /var/lib/apt/lists/* /tmp/* ~/*
 
-# Copy project files
-RUN mkdir logoGAN
-COPY ./ /logoGAN/
-WORKDIR /logoGAN/
 EXPOSE 6006

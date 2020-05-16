@@ -1,7 +1,6 @@
-from keras.layers import Dense, Input
-from keras.layers.advanced_activations import LeakyReLU
-from keras.models import Sequential, Model
-from keras.optimizers import Adam
+from tensorflow.keras.layers import Dense, Input, LeakyReLU
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.optimizers import Adam
 import numpy as np
 import os
 import time
@@ -16,8 +15,8 @@ noise_dim = 10
 batch_size = 16
 epochs = 30000
 
-imageSavePath = 'fcgan-images'
-modelSavePath = 'saved-models'
+imageSavePath = '../fcgan-images'
+modelSavePath = '../saved-models'
 datasetPath = '../dataset/train/'
 memmapPath = '../dataset/train.dat'
 numFiles = len(os.listdir(datasetPath))
