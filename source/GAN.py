@@ -79,8 +79,6 @@ def save_model(generator, discriminator, epoch):
     discriminator.save(os.path.join(modelSavePath, f"epoch{epoch}_{time.time()}_discriminator.h5"))
 
 
-memmap = np.memmap(memmapPath, dtype='float32', mode='r+', shape=(img_rows, img_cols, numFiles))
-
 discriminator = create_discriminator()
 generator = create_generator()
 discriminator.trainable = False
@@ -102,7 +100,9 @@ for epochCount, epoch in enumerate(range(epochs)):
         fake_x = generator.predict(noise)
 
         indices = np.random.randint(0, numFiles, size=batch_size)
+        memmap = np.memmap(memmapPath, dtype='float32', mode='r+', shape=(img_rows, img_cols, numFiles))
         real_x = DataGenerator.getPreprocessedImg(memmap, indices)
+        del memmap
         real_x = real_x.reshape(-1, img_rows*img_cols*channels)
 
         x = np.concatenate((real_x, fake_x))
