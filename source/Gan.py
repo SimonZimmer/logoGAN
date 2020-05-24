@@ -7,9 +7,9 @@ from tensorflow import random, ones_like, zeros_like, GradientTape, function, en
 import os
 import time
 import sys
+import PIL.Image as Image
 sys.path.append("/")
 from DataGenerator import DataGenerator
-import matplotlib.pyplot as plt
 
 
 class Gan:
@@ -43,6 +43,8 @@ class Gan:
 
     def create_generator(self):
         generator = Sequential()
+        inputDims = (self.imgDims[0] / 4, self.imgDims[1] / 4)
+
         generator.add(Dense(7 * 7 * 256, use_bias=False, input_shape=(self.noiseDim,)))
         generator.add(BatchNormalization())
         generator.add(LeakyReLU())
@@ -95,11 +97,12 @@ class Gan:
         for i in range(predictions.shape[0]):
             image = predictions[i, :, :, 0]
 
-            fig, ax = plt.subplots()
-            ax.imshow(image * 127.5 + 127.5, cmap='gray')
-            ax.axis('off')
-            fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-            fig.savefig(os.path.join(self.imageSavePath, f"image_at_epoch_{epoch}_{i}.png"))
+            imageData = image.numpy()
+            imageData = imageData * 127.5 + 127.5
+            array_buffer = imageData.tobytes()
+            img = Image.new("I", imageData.T.shape)
+            img.frombytes(array_buffer, 'raw', "I;16")
+            img.save(os.path.join(self.imageSavePath, f"image_at_epoch_{epoch}_{i}.png"))
 
     def discriminator_loss(self, real_output, fake_output):
         real_loss = self.cross_entropy(ones_like(real_output), real_output)
@@ -150,3 +153,4 @@ class Gan:
             print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
 
         self.generate_and_save_images(epochs, seed)
+
