@@ -4,5 +4,8 @@ geckodriver.log
 .idea/
 dataset 
 __pycache__
-checkpoints
+savedModels
 generated_images
+*.png
+*.h5
+

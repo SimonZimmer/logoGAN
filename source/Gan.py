@@ -2,7 +2,6 @@ from tensorflow.keras.layers import Dense, Input, LeakyReLU, Flatten, Reshape, D
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.train import Checkpoint
 from tensorflow import random, ones_like, zeros_like, GradientTape, function, enable_eager_execution
 import os
 import time
@@ -29,17 +28,15 @@ class Gan:
         self.imageSavePath = '../generated_images'
         if not os.path.isdir(self.imageSavePath):
             os.mkdir(self.imageSavePath)
-        checkpointDir = '../checkpoints'
-        if not os.path.isdir(checkpointDir):
-            os.mkdir(checkpointDir)
+        self.modelSavePath = '../saved_models'
+        if not os.path.isdir(self.modelSavePath):
+            os.mkdir(self.modelSavePath)
 
         self.cross_entropy = BinaryCrossentropy(from_logits=True)
         self.generatorOptimizer = Adam(1e-4)
         self.discriminatorOptimizer = Adam(1e-4)
         self.discriminator = self.create_discriminator()
         self.generator = self.create_generator()
-
-        self.checkpoint, self.checkpointPrefix = self.createCheckpoint(checkpointDir)
 
     def create_generator(self):
         generator = Sequential()
@@ -82,14 +79,9 @@ class Gan:
 
         return discriminator
 
-    def createCheckpoint(self, checkpointDir):
-        checkpoint_prefix = os.path.join(checkpointDir, "ckpt")
-        checkpoint = Checkpoint(generator_optimizer=self.generatorOptimizer,
-                                discriminator_optimizer=self.discriminatorOptimizer,
-                                generator=self.generator,
-                                discriminator=self.discriminator)
-
-        return checkpoint, checkpoint_prefix
+    def saveModel(self, epoch):
+        self.generator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
+        self.discriminator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
 
     def generate_and_save_images(self, epoch, test_input):
         predictions = self.generator(test_input, training=False)
@@ -148,7 +140,7 @@ class Gan:
 
             if (epoch + 1) % checkpointFrequency == 0:
                 self.generate_and_save_images(epoch + 1, seed)
-                self.checkpoint.save(file_prefix=self.checkpointPrefix)
+                self.saveModel(epoch + 1)
 
             print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
 
