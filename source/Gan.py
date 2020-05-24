@@ -43,33 +43,33 @@ class Gan:
 
     def create_generator(self):
         generator = Sequential()
-        inputDims = (self.imgDims[0] / 4, self.imgDims[1] / 4)
+        internalDims = (int(self.imgDims[0] / 4), int(self.imgDims[1] / 4))
 
-        generator.add(Dense(7 * 7 * 256, use_bias=False, input_shape=(self.noiseDim,)))
+        generator.add(Dense(internalDims[0] * internalDims[1] * 256, use_bias=False, input_shape=(self.noiseDim,)))
         generator.add(BatchNormalization())
         generator.add(LeakyReLU())
 
-        generator.add(Reshape((7, 7, 256)))
-        assert generator.output_shape == (None, 7, 7, 256)
+        generator.add(Reshape((internalDims[0], internalDims[1], 256)))
+        assert generator.output_shape == (None, internalDims[0], internalDims[1], 256)
 
         generator.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
-        assert generator.output_shape == (None, 7, 7, 128)
+        assert generator.output_shape == (None, internalDims[0], internalDims[1], 128)
         generator.add(BatchNormalization())
         generator.add(LeakyReLU())
 
         generator.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-        assert generator.output_shape == (None, 14, 14, 64)
+        assert generator.output_shape == (None, 2 * internalDims[0], 2 * internalDims[1], 64)
         generator.add(BatchNormalization())
         generator.add(LeakyReLU())
 
         generator.add(Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-        assert generator.output_shape == (None, 28, 28, 1)
+        assert generator.output_shape == (None, self.imgDims[0], self.imgDims[1], self.imgDims[2])
 
         return generator
 
     def create_discriminator(self):
         discriminator = Sequential()
-        discriminator.add(Conv2D(64, (5, 5), strides=(2, 2), padding='same', input_shape=[28, 28, 1]))
+        discriminator.add(Conv2D(64, (5, 5), strides=(2, 2), padding='same', input_shape=[*self.imgDims]))
         discriminator.add(LeakyReLU())
         discriminator.add(Dropout(0.3))
 
