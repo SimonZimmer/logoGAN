@@ -126,7 +126,7 @@ class Gan:
             zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
     def train(self, epochs, checkpointFrequency):
-        num_examples_to_generate = 16
+        num_examples_to_generate = 3
 
         seed = random.normal([num_examples_to_generate, self.noiseDim])
 
