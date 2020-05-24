@@ -1,54 +1,66 @@
 import numpy as np
 import os
 from PIL import Image
+from tensorflow import float32, convert_to_tensor
 
 
-def getMinDimSize(filePath):
-    allMinSizes = []
-    minImgSize = 28
-    for imgFile in os.listdir(filePath):
-        imgFilePath = os.path.join(filePath, imgFile)
-        if imgFile.endswith(".jpg"):
-            img = Image.open(imgFilePath)
-            minSize = np.min(img.size)
-            if minSize < minImgSize:
-                os.remove(imgFilePath)
-            allMinSizes.append(minSize)
-        else:
-            os.remove(imgFilePath)
-    globalMinSize = np.min(allMinSizes)
+class DataGenerator:
+    def __init__(self, imgDims, datasetPath):
+        self.removeNonImageFiles(datasetPath)
+        self.imgDims = imgDims
+        self.datasetPath = datasetPath
+        self.memmapPath = os.path.join(self.datasetPath, 'train.dat')
+        self.numFiles = len(os.listdir(datasetPath))
+        if not os.path.isfile(self.memmapPath):
+            self.createMemmap()
 
-    return globalMinSize
+    def createMemmap(self):
+        allFiles = os.listdir(self.datasetPath)
+        memmap = np.memmap(self.memmapPath, dtype='float32', mode='w+', shape=(*self.imgDims, self.numFiles))
+        for n, imgFile in enumerate(allFiles):
+            print(f'Writing {n}/{self.numFiles} ({imgFile})')
+            imgFilePath = os.path.join(self.datasetPath, imgFile)
+            memmap[:, :, :, n] = self.getProcessedImage(imgFilePath)
+        del memmap
+        print('done.')
 
+    def getBatch(self, batchSize):
+        memmap = np.memmap(self.memmapPath, dtype='float32', mode='r', shape=(*self.imgDims, self.numFiles))
+        indices = np.random.randint(0, self.numFiles-1, size=batchSize)
+        imgArrays = []
+        for i in indices:
+            img = memmap[:, :, :, i]
+            imgArrays.append(img)
+        batch = np.stack(imgArrays, axis=0)
+        batch = convert_to_tensor(batch, dtype=float32)
+        del memmap
 
-def createMemmap(datasetPath, memmapPath, imgDims):
-    allFiles = os.listdir(datasetPath)
-    numFiles = len(allFiles)
-    memmap = np.memmap(memmapPath, dtype='float32', mode='w+', shape=(*imgDims, numFiles))
-    for n, imgFile in enumerate(allFiles):
-        if int(n == numFiles / 2):
-            del memmap
-            memmap = np.memmap(memmapPath, dtype='float32', mode='w+', shape=(*imgDims, numFiles))
-        print(f'Writing {n}/{numFiles} ({imgFile})')
-        imgFilePath = os.path.join(datasetPath, imgFile)
+        return batch
+
+    def getProcessedImage(self, imgFilePath):
         img = Image.open(imgFilePath)
-        try:
-            imgBw = img.convert('L')
-            imgBwResized = imgBw.resize((128, 128), Image.NEAREST)
-            imgData = np.array(imgBwResized)
-            memmap[:, :, n] = imgData
-        except OSError:
-            os.remove(imgFilePath)
-    print('done.')
+        img = img.convert('L')
+        img = img.resize(self.imgDims[:2], Image.NEAREST)
+        imgData = np.array(img)
+        imgData = np.expand_dims(imgData, 3)
+        imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)
 
-    return (*imgDims, numFiles)
+        return imgData
 
+    @staticmethod
+    def filterImgSize(filePath, imgSize=28):
+        for imgFile in os.listdir(filePath):
+            imgFilePath = os.path.join(filePath, imgFile)
+            if imgFile.endswith(".jpg"):
+                img = Image.open(imgFilePath)
+                minSize = np.min(img.size)
+                if minSize < imgSize:
+                    os.remove(imgFilePath)
 
-def getPreprocessedImg(memmap, indices):
-    imgArrays = []
-    for n, i in enumerate(indices):
-        img = memmap[:, :, i]
-        imgArrays.append(img)
-    batch = np.stack(imgArrays, axis=2)
-
-    return batch
+    @staticmethod
+    def removeNonImageFiles(path):
+        allFiles = os.listdir(path)
+        for f in allFiles:
+            print(f"scanning file {f}")
+            if not f.endswith(".jpg") and not f.endswith(".jpeg"):
+                os.remove(os.path.join(path, f))

@@ -4,5 +4,5 @@ geckodriver.log
 .idea/
 dataset 
 __pycache__
-saved-models
-saved-images
+checkpoints
+generated_images
