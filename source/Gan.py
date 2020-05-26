@@ -2,18 +2,22 @@ from tensorflow.keras.layers import Dense, Input, LeakyReLU, Flatten, Reshape, D
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow import random, ones_like, zeros_like, GradientTape, function, enable_eager_execution
+from tensorflow import random, ones_like, zeros_like, GradientTape, function
+from matplotlib.transforms import Bbox
+from tensorflow import io
+import tensorflow as tf
 import os
 import time
 import sys
+import numpy as np
 import PIL.Image as Image
+import matplotlib.pyplot as plt
 sys.path.append("/")
 from DataGenerator import DataGenerator
 
 
 class Gan:
     def __init__(self, datasetPath, imgDims, batchSize, noiseDim):
-        enable_eager_execution()
         self.datasetPath = datasetPath
 
         self.dataGenerator = DataGenerator(imgDims, datasetPath)
@@ -86,14 +90,16 @@ class Gan:
         predictions = self.generator(test_input, training=False)
 
         for i in range(predictions.shape[0]):
-            image = predictions[i, :, :, 0]
+            my_dpi = 100
+            fig, ax = plt.subplots(1, figsize=(28 / my_dpi, 28 / my_dpi), dpi=my_dpi)
+            ax.set_position([0, 0, 1, 1])
 
-            imageData = image.numpy()
-            imageData = imageData * 127.5 + 127.5
-            array_buffer = imageData.tobytes()
-            img = Image.new("I", imageData.T.shape)
-            img.frombytes(array_buffer, 'raw', "I;16")
-            img.save(os.path.join(self.imageSavePath, f"image_at_epoch_{epoch}_{i}.png"))
+            plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
+            plt.axis('off')
+
+            fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
+                        bbox_inches=Bbox([[0, 0], [28 / my_dpi, 28 / my_dpi]]),
+                        dpi=my_dpi)
 
     def discriminator_loss(self, real_output, fake_output):
         real_loss = self.cross_entropy(ones_like(real_output), real_output)

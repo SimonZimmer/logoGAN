@@ -33,8 +33,6 @@ class DataGenerator:
             img = memmap[:, :, :, i]
             imgArrays.append(img)
         batch = np.stack(imgArrays, axis=0)
-        plt.imshow(batch[0, :, :, 0])
-        plt.show()
         batch = convert_to_tensor(batch, dtype=float32)
         del memmap
 
@@ -45,7 +43,7 @@ class DataGenerator:
         img = img.convert('L')
         img = img.resize(self.imgDims[:2], Image.NEAREST)
         imgData = np.array(img)
-        imgData = np.expand_dims(imgData, 3)
+        imgData = np.expand_dims(imgData, 2)
         imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)
 
         return imgData

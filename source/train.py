@@ -1,9 +1,9 @@
 from Gan import Gan
 
-gan = Gan("/Users/simonzimmermann/Downloads/mnistasjpg",
+gan = Gan("../dataset",
           imgDims=(28, 28, 1),
-          batchSize=128,
+          batchSize=256,
           noiseDim=100)
 
 gan.train(epochs=10000,
-          checkpointFrequency=50)
+          checkpointFrequency=1)
