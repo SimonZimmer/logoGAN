@@ -39,45 +39,44 @@ class Gan:
         self.generator = self.create_generator()
 
     def create_generator(self):
-        generator = Sequential()
-        internalDims = (int(self.imgDims[0] / 4), int(self.imgDims[1] / 4))
+        model = Sequential()
+        model.add(Dense(7 * 7 * 256, use_bias=False, input_shape=(100,)))
+        model.add(BatchNormalization())
+        model.add(LeakyReLU())
 
-        generator.add(Dense(internalDims[0] * internalDims[1] * 256, use_bias=False, input_shape=(self.noiseDim,)))
-        generator.add(BatchNormalization())
-        generator.add(LeakyReLU())
+        model.add(Reshape((7, 7, 256)))
+        assert model.output_shape == (None, 7, 7, 256)  # Note: None is the batch size
 
-        generator.add(Reshape((internalDims[0], internalDims[1], 256)))
-        assert generator.output_shape == (None, internalDims[0], internalDims[1], 256)
+        model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
+        assert model.output_shape == (None, 7, 7, 128)
+        model.add(BatchNormalization())
+        model.add(LeakyReLU())
 
-        generator.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
-        assert generator.output_shape == (None, internalDims[0], internalDims[1], 128)
-        generator.add(BatchNormalization())
-        generator.add(LeakyReLU())
+        model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+        assert model.output_shape == (None, 14, 14, 64)
+        model.add(BatchNormalization())
+        model.add(LeakyReLU())
 
-        generator.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-        assert generator.output_shape == (None, 2 * internalDims[0], 2 * internalDims[1], 64)
-        generator.add(BatchNormalization())
-        generator.add(LeakyReLU())
+        model.add(Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
+        assert model.output_shape == (None, 28, 28, 1)
 
-        generator.add(Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-        assert generator.output_shape == (None, self.imgDims[0], self.imgDims[1], self.imgDims[2])
-
-        return generator
+        return model
 
     def create_discriminator(self):
-        discriminator = Sequential()
-        discriminator.add(Conv2D(64, (5, 5), strides=(2, 2), padding='same', input_shape=[*self.imgDims]))
-        discriminator.add(LeakyReLU())
-        discriminator.add(Dropout(0.3))
+        model = Sequential()
+        model.add(Conv2D(64, (5, 5), strides=(2, 2), padding='same',
+                         input_shape=[28, 28, 1]))
+        model.add(LeakyReLU())
+        model.add(Dropout(0.3))
 
-        discriminator.add(Conv2D(128, (5, 5), strides=(2, 2), padding='same'))
-        discriminator.add(LeakyReLU())
-        discriminator.add(Dropout(0.3))
+        model.add(Conv2D(128, (5, 5), strides=(2, 2), padding='same'))
+        model.add(LeakyReLU())
+        model.add(Dropout(0.3))
 
-        discriminator.add(Flatten())
-        discriminator.add(Dense(1))
+        model.add(Flatten())
+        model.add(Dense(1))
 
-        return discriminator
+        return model
 
     def saveModel(self, epoch):
         self.generator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
@@ -117,6 +116,8 @@ class Gan:
 
             gen_loss = self.generator_loss(fake_output)
             disc_loss = self.discriminator_loss(real_output, fake_output)
+
+        #TODO: Add noise to the real and generated images before feeding them into the discriminator.
 
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)

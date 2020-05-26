@@ -2,6 +2,7 @@ import numpy as np
 import os
 from PIL import Image
 from tensorflow import float32, convert_to_tensor
+import matplotlib.pyplot as plt
 
 
 class DataGenerator:
@@ -32,6 +33,8 @@ class DataGenerator:
             img = memmap[:, :, :, i]
             imgArrays.append(img)
         batch = np.stack(imgArrays, axis=0)
+        plt.imshow(batch[0, :, :, 0])
+        plt.show()
         batch = convert_to_tensor(batch, dtype=float32)
         del memmap
 
