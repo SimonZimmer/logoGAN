@@ -1,8 +1,8 @@
 from Gan import Gan
 
-gan = Gan("../dataset",
-          imgDims=(28, 28, 1),
-          batchSize=256,
+gan = Gan("../mnisttest",
+          imgDims=(128, 128, 1),
+          batchSize=64,
           noiseDim=100)
 
 gan.train(epochs=10000,

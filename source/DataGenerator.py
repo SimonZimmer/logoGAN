@@ -41,7 +41,7 @@ class DataGenerator:
     def getProcessedImage(self, imgFilePath):
         img = Image.open(imgFilePath)
         img = img.convert('L')
-        img = img.resize(self.imgDims[:2], Image.NEAREST)
+        img = img.resize(self.imgDims[:2], Image.LANCZOS)
         imgData = np.array(img)
         imgData = np.expand_dims(imgData, 2)
         imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)

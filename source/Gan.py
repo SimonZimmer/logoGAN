@@ -44,32 +44,35 @@ class Gan:
 
     def create_generator(self):
         model = Sequential()
-        model.add(Dense(7 * 7 * 256, use_bias=False, input_shape=(100,)))
+        model.add(Dense(int(self.imgDims[0] / 4) * int(self.imgDims[0] / 4) * 256, use_bias=False, input_shape=(100,)))
         model.add(BatchNormalization())
         model.add(LeakyReLU())
 
-        model.add(Reshape((7, 7, 256)))
-        assert model.output_shape == (None, 7, 7, 256)  # Note: None is the batch size
+        model.add(Reshape((int(self.imgDims[0] / 4), int(self.imgDims[0] / 4), 256)))
+        assert model.output_shape == (None, int(self.imgDims[0] / 4), int(self.imgDims[0] / 4), 256)
 
         model.add(Conv2DTranspose(128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
-        assert model.output_shape == (None, 7, 7, 128)
+        assert model.output_shape == (None, int(self.imgDims[0] / 4), int(self.imgDims[1] / 4), 128)
         model.add(BatchNormalization())
         model.add(LeakyReLU())
 
         model.add(Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
-        assert model.output_shape == (None, 14, 14, 64)
+        assert model.output_shape == (None, int(self.imgDims[0] / 2), int(self.imgDims[1] / 2), 64)
         model.add(BatchNormalization())
         model.add(LeakyReLU())
 
         model.add(Conv2DTranspose(1, (5, 5), strides=(2, 2), padding='same', use_bias=False, activation='tanh'))
-        assert model.output_shape == (None, 28, 28, 1)
+        assert model.output_shape == (None, self.imgDims[0], self.imgDims[1], self.imgDims[2])
+
+        print("generator architecture")
+        model.summary()
 
         return model
 
     def create_discriminator(self):
         model = Sequential()
         model.add(Conv2D(64, (5, 5), strides=(2, 2), padding='same',
-                         input_shape=[28, 28, 1]))
+                         input_shape=[self.imgDims[0], self.imgDims[1], self.imgDims[2]]))
         model.add(LeakyReLU())
         model.add(Dropout(0.3))
 
@@ -79,6 +82,9 @@ class Gan:
 
         model.add(Flatten())
         model.add(Dense(1))
+
+        print("discriminator architecture")
+        model.summary()
 
         return model
 
@@ -91,14 +97,14 @@ class Gan:
 
         for i in range(predictions.shape[0]):
             my_dpi = 100
-            fig, ax = plt.subplots(1, figsize=(28 / my_dpi, 28 / my_dpi), dpi=my_dpi)
+            fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
 
             plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
             plt.axis('off')
 
             fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
-                        bbox_inches=Bbox([[0, 0], [28 / my_dpi, 28 / my_dpi]]),
+                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
                         dpi=my_dpi)
 
     def discriminator_loss(self, real_output, fake_output):
