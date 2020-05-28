@@ -41,7 +41,9 @@ class DataGenerator:
     def getProcessedImage(self, imgFilePath):
         img = Image.open(imgFilePath)
         img = img.convert('L')
+        img = self.expand2square(img, 0)
         img = img.resize(self.imgDims[:2], Image.LANCZOS)
+        img.save("test.png")
         imgData = np.array(img)
         imgData = np.expand_dims(imgData, 2)
         imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)
@@ -65,3 +67,17 @@ class DataGenerator:
             print(f"scanning file {f}")
             if not f.endswith(".jpg") and not f.endswith(".jpeg"):
                 os.remove(os.path.join(path, f))
+
+    @staticmethod
+    def expand2square(pil_img, background_color):
+        width, height = pil_img.size
+        if width == height:
+            return pil_img
+        elif width > height:
+            result = Image.new(pil_img.mode, (width, width), background_color)
+            result.paste(pil_img, (0, (width - height) // 2))
+            return result
+        else:
+            result = Image.new(pil_img.mode, (height, height), background_color)
+            result.paste(pil_img, ((height - width) // 2, 0))
+            return result

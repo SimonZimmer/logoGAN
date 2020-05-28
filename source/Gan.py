@@ -90,7 +90,7 @@ class Gan:
 
     def saveModel(self, epoch):
         self.generator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
-        self.discriminator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
+        self.discriminator.save(os.path.join(self.modelSavePath, f"discriminator_at_epoch{epoch}.h5"))
 
     def generate_and_save_images(self, epoch, test_input):
         predictions = self.generator(test_input, training=False)
@@ -106,6 +106,7 @@ class Gan:
             fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
                         bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
                         dpi=my_dpi)
+            plt.close()
 
     def discriminator_loss(self, real_output, fake_output):
         real_loss = self.cross_entropy(ones_like(real_output), real_output)
@@ -139,7 +140,7 @@ class Gan:
             zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
     def train(self, epochs, checkpointFrequency):
-        num_examples_to_generate = 3
+        num_examples_to_generate = 5
 
         seed = random.normal([num_examples_to_generate, self.noiseDim])
 
