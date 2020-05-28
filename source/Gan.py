@@ -100,7 +100,7 @@ class Gan:
             fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
 
-            plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
+            plt.imshow(np.asarray(predictions[i, :, :, 0] * 127.5 + 127.5, dtype='uint8'), cmap='gray')
             plt.axis('off')
 
             fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
@@ -130,8 +130,6 @@ class Gan:
             gen_loss = self.generator_loss(fake_output)
             disc_loss = self.discriminator_loss(real_output, fake_output)
 
-        #TODO: Add noise to the real and generated images before feeding them into the discriminator.
-
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
 
@@ -159,4 +157,3 @@ class Gan:
             print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
 
         self.generate_and_save_images(epochs, seed)
-
