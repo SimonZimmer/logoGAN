@@ -43,7 +43,6 @@ class DataGenerator:
         img = img.convert('L')
         img = self.expand2square(img, 0)
         img = img.resize(self.imgDims[:2], Image.LANCZOS)
-        img.save("test.png")
         imgData = np.array(img)
         imgData = np.expand_dims(imgData, 2)
         imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)
@@ -81,3 +80,4 @@ class DataGenerator:
             result = Image.new(pil_img.mode, (height, height), background_color)
             result.paste(pil_img, ((height - width) // 2, 0))
             return result
+
