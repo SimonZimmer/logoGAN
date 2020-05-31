@@ -3,6 +3,7 @@ import os
 from PIL import Image
 from tensorflow import float32, convert_to_tensor
 import matplotlib.pyplot as plt
+from skimage.transform import resize
 
 
 class DataGenerator:
@@ -12,6 +13,7 @@ class DataGenerator:
         self.datasetPath = datasetPath
         self.memmapPath = os.path.join(self.datasetPath, 'train.dat')
         self.numFiles = len(os.listdir(datasetPath))
+        self.currentImgShape = imgDims
         if not os.path.isfile(self.memmapPath):
             self.createMemmap()
 
@@ -31,6 +33,7 @@ class DataGenerator:
         imgArrays = []
         for i in indices:
             img = memmap[:, :, :, i]
+            img = resize(img, self.currentImgShape, 0)
             imgArrays.append(img)
         batch = np.stack(imgArrays, axis=0)
         batch = convert_to_tensor(batch, dtype=float32)
@@ -42,7 +45,7 @@ class DataGenerator:
         img = Image.open(imgFilePath)
         img = img.convert('L')
         img = self.expand2square(img, 0)
-        img = img.resize(self.imgDims[:2], Image.LANCZOS)
+        img = img.resize(self.imgDims[:2], Image.NEAREST)
         imgData = np.array(img)
         imgData = np.expand_dims(imgData, 2)
         imgData = np.subtract(np.divide(imgData, (255 * 0.5)), 1)

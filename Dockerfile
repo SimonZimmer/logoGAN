@@ -29,7 +29,8 @@ RUN $PIP_INSTALL \
   setuptools \
   h5py \
   keras \
-  jupyter
+  jupyter \
+  scikit-image
 
 # Project dependencies
 RUN $APT_INSTALL libsndfile1 -y \
