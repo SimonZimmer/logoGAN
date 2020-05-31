@@ -241,7 +241,7 @@ class Gan:
         :return: a numpy array representing a single batch, a vector representing the annotation
         """
         batch = self.dataGenerator.getBatch(batchSize)
-        labels = np.full((batchSize, 0.9))
+        labels = np.full((batchSize, 1), 0.9)
         plt.imshow(batch[1, :, :, 0])
         plt.savefig("test.png")
         return batch, labels
@@ -265,7 +265,7 @@ class Gan:
         """
         latent_input = self.generate_latent_points(batch_size)
         images = generator.predict(latent_input)
-        labels = np.full((batch_size, -0.9))
+        labels = np.full((batch_size, 1), -0.9)
         return images, labels
 
     def train_stage(self, g_model, d_model, gan_model, n_epochs, batch_size, fadein=False):
