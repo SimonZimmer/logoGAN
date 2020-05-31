@@ -6,7 +6,6 @@ from matplotlib.transforms import Bbox
 from tensorflow.keras import backend
 from tensorflow.keras.constraints import max_norm
 import os
-from math import sqrt
 import numpy as np
 import matplotlib.pyplot as plt
 from DataGenerator import DataGenerator
@@ -20,7 +19,6 @@ class Gan:
         :param datasetPath: path to the dataset containing grayscale .jpg images
         :param imgDims: target image dimensions (dataset-images will be resized)
         """
-        self.datasetPath = datasetPath
         self.dataGenerator = DataGenerator(imgDims, datasetPath)
         self.imgDims = imgDims
         self.imageSavePath = '../generated_images'
@@ -30,21 +28,15 @@ class Gan:
         if not os.path.isdir(self.modelSavePath):
             os.mkdir(self.modelSavePath)
 
-        # number of growth phases, e.g. 6 == [4, 8, 16, 32, 64, 128]
-        self.n_blocks = 6
-        # size of the latent space
+        self.num_scaling_stages = 6
         self.latent_dim = 100
-        # define models
-        self.d_models = self.define_discriminator(self.n_blocks)
-        # define models
-        self.g_models = self.define_generator(self.n_blocks)
-        # define composite models
-        self.gan_models = self.define_composite(self.d_models, self.g_models)
-        self.n_batch = [16, 16, 16, 8, 4, 4]
-        # 10 epochs == 500K images per training phase
-        self.n_epochs = [5, 8, 8, 10, 10, 10]
-        self.e_fadein = self.n_epochs
-        self.e_norm = self.n_epochs
+        self.discriminator_architectures = self.define_discriminator(self.num_scaling_stages)
+        self.generator_architectures = self.define_generator(self.num_scaling_stages)
+        self.gan_models = self.define_composite(self.discriminator_architectures, self.generator_architectures)
+        self.batch_sizes = [16, 16, 16, 8, 4, 4]
+        self.num_epochs = [5, 8, 8, 10, 10, 10]
+        self.e_fadein = self.num_epochs
+        self.e_norm = self.num_epochs
 
     def add_discriminator_block(self, old_model, n_input_layers=3):
         """
@@ -53,44 +45,43 @@ class Gan:
         :param n_input_layers: the number of input layers of the architecture as a whole
         :return:
         """
-        # weight initialization
         init = RandomNormal(stddev=0.02)
         # weight constraint
         const = max_norm(1.0)
         # get shape of existing model
-        in_shape = list(old_model.input.shape)
+        old_input_shape = list(old_model.input.shape)
         # define new input shape as double the size
-        input_shape = (in_shape[-2] * 2, in_shape[-2] * 2, in_shape[-1])
-        in_image = Input(shape=input_shape)
-        # define new input processing layer
-        d = Conv2D(128, (1, 1), padding='same', kernel_initializer=init, kernel_constraint=const)(in_image)
-        d = LeakyReLU(alpha=0.2)(d)
-        # define new block
-        d = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(d)
-        d = LeakyReLU(alpha=0.2)(d)
-        d = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(d)
-        d = LeakyReLU(alpha=0.2)(d)
-        d = AveragePooling2D()(d)
-        block_new = d
+        new_input_shape = (old_input_shape[-2] * 2, old_input_shape[-2] * 2, old_input_shape[-1])
+
+        inputLayer = Input(shape=new_input_shape)
+        discriminator = Conv2D(128, (1, 1), padding='same', kernel_initializer=init, kernel_constraint=const)(inputLayer)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
+
+        discriminator = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(discriminator)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
+        discriminator = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(discriminator)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
+        discriminator = AveragePooling2D()(discriminator)
+        new_scaling_stage = discriminator
         # skip the input, 1x1 and activation for the old model
         for i in range(n_input_layers, len(old_model.layers)):
-            d = old_model.layers[i](d)
+            discriminator = old_model.layers[i](discriminator)
         # define straight-through model
-        model1 = Model(in_image, d)
+        model1 = Model(inputLayer, discriminator)
         # compile model
         model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # downsample the new larger image
-        downsample = AveragePooling2D()(in_image)
+        downsample = AveragePooling2D()(inputLayer)
         # connect old input processing to downsampled new input
-        block_old = old_model.layers[1](downsample)
-        block_old = old_model.layers[2](block_old)
+        old_scaling_stage = old_model.layers[1](downsample)
+        old_scaling_stage = old_model.layers[2](old_scaling_stage)
         # fade in output of old model input layer with new input
-        d = WeightedSum()([block_old, block_new])
+        discriminator = WeightedSum()([old_scaling_stage, new_scaling_stage])
         # skip the input, 1x1 and activation for the old model
         for i in range(n_input_layers, len(old_model.layers)):
-            d = old_model.layers[i](d)
+            discriminator = old_model.layers[i](discriminator)
         # define straight-through model
-        model2 = Model(in_image, d)
+        model2 = Model(inputLayer, discriminator)
         # compile model
         model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
         return [model1, model2]
@@ -110,18 +101,18 @@ class Gan:
         # base model input
         in_image = Input(shape=input_shape)
         # conv 1x1
-        d = Conv2D(128, (1, 1), padding='same', kernel_initializer=init, kernel_constraint=const)(in_image)
-        d = LeakyReLU(alpha=0.2)(d)
+        discriminator = Conv2D(128, (1, 1), padding='same', kernel_initializer=init, kernel_constraint=const)(in_image)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
         # conv 3x3 (output block)
-        d = MinibatchStdev()(d)
-        d = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(d)
-        d = LeakyReLU(alpha=0.2)(d)
+        discriminator = MinibatchStdev()(discriminator)
+        discriminator = Conv2D(128, (3, 3), padding='same', kernel_initializer=init, kernel_constraint=const)(discriminator)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
         # conv 4x4
-        d = Conv2D(128, (4, 4), padding='same', kernel_initializer=init, kernel_constraint=const)(d)
-        d = LeakyReLU(alpha=0.2)(d)
+        discriminator = Conv2D(128, (4, 4), padding='same', kernel_initializer=init, kernel_constraint=const)(discriminator)
+        discriminator = LeakyReLU(alpha=0.2)(discriminator)
         # dense output layer
-        d = Flatten()(d)
-        out_class = Dense(1)(d)
+        discriminator = Flatten()(discriminator)
+        out_class = Dense(1)(discriminator)
         # define model
         model = Model(in_image, out_class)
         # compile model
@@ -138,8 +129,8 @@ class Gan:
             model_list.append(models)
         return model_list
 
-    # add a generator block
-    def add_generator_block(self, old_model):
+    @staticmethod
+    def add_generator_block(old_model):
         """
         adds a generator scaling stage to the architecture
         :param old_model: the generator model of the previous scaling stage
@@ -174,7 +165,6 @@ class Gan:
 
         return [model1, model2]
 
-    # define generator models
     def define_generator(self, num_scale_stages, in_dim=4):
         """
         defines the generator architecture
@@ -250,11 +240,11 @@ class Gan:
         :param batchSize: size of the batch
         :return: a numpy array representing a single batch, a vector representing the annotation
         """
-        # select images
-        X = self.dataGenerator.getBatch(batchSize)
-        # generate class labels
-        y = np.ones((batchSize, 1))
-        return X, y
+        batch = self.dataGenerator.getBatch(batchSize)
+        labels = np.full((batchSize, 0.9))
+        plt.imshow(batch[1, :, :, 0])
+        plt.savefig("test.png")
+        return batch, labels
 
     def generate_latent_points(self, n_samples):
         """
@@ -262,11 +252,9 @@ class Gan:
         :param n_samples: length of the latent dimension
         :return: an input vector for the generator
         """
-        # generate points in the latent space
-        x_input = np.random.randn(self.latent_dim * n_samples)
-        # reshape into a batch of inputs for the network
-        x_input = x_input.reshape(n_samples, self.latent_dim)
-        return x_input
+        latent_input = np.random.randn(self.latent_dim * n_samples)
+        latent_input = latent_input.reshape(n_samples, self.latent_dim)
+        return latent_input
 
     def generate_fake_samples(self, generator, batch_size):
         """
@@ -275,44 +263,37 @@ class Gan:
         :param batch_size: the batch size
         :return:
         """
-        # generate points in latent space
-        x_input = self.generate_latent_points(batch_size)
-        # predict outputs
-        X = generator.predict(x_input)
-        # create class labels
-        y = -np.ones((batch_size, 1))
-        return X, y
+        latent_input = self.generate_latent_points(batch_size)
+        images = generator.predict(latent_input)
+        labels = np.full((batch_size, -0.9))
+        return images, labels
 
-    def train_stage(self, g_model, d_model, gan_model, n_epochs, n_batch, fadein=False):
+    def train_stage(self, g_model, d_model, gan_model, n_epochs, batch_size, fadein=False):
         """
         trains one scaling stage of the combined generator/discriminator architecture
         """
-        # calculate the number of batches per training epoch
-        bat_per_epo = int(self.dataGenerator.numFiles / n_batch)
-        # calculate the number of training iterations
-        n_steps = bat_per_epo * n_epochs
-        # calculate the size of half a batch of samples
-        half_batch = int(n_batch / 2)
-        # manually enumerate epochs
+        bat_per_epoch = int(self.dataGenerator.numFiles / batch_size)
+        n_steps = bat_per_epoch * n_epochs
+        half_batch = int(batch_size / 2)
         for i in range(n_steps):
             # update alpha for all WeightedSum layers when fading in new blocks
             if fadein:
                 self.update_fadein([g_model, d_model, gan_model], i, n_steps)
             # prepare real and fake samples
-            X_real, y_real = self.generate_real_samples(half_batch)
-            X_fake, y_fake = self.generate_fake_samples(g_model, half_batch)
+            images_real, labels_real = self.generate_real_samples(half_batch)
+            images_fake, labels_fake = self.generate_fake_samples(g_model, half_batch)
             # update discriminator model
-            d_loss1 = d_model.train_on_batch(X_real, y_real)
-            d_loss2 = d_model.train_on_batch(X_fake, y_fake)
+            discriminator_loss1 = d_model.train_on_batch(images_real, labels_real)
+            discriminator_loss2 = d_model.train_on_batch(images_fake, labels_fake)
             # update the generator via the discriminator's error
-            z_input = self.generate_latent_points(n_batch)
-            y_real2 = np.ones((n_batch, 1))
-            g_loss = gan_model.train_on_batch(z_input, y_real2)
-            # summarize loss on this batch
+            latent_input = self.generate_latent_points(batch_size)
+            labels_real2 = np.ones((batch_size, 1))
+            generator_loss = gan_model.train_on_batch(latent_input, labels_real2)
+
             print(f'scaling stage {self.dataGenerator.currentImgShape[:2]}, '
-                  f'step {i+1}/{n_steps}, discriminator1_loss={np.round(d_loss1, 4)}, '
-                  f'discriminator2_loss={np.round(d_loss2, 4)}, '
-                  f'generator_loss={np.round(g_loss, 4)}')
+                  f'step {i+1}/{n_steps}, discriminator1_loss={np.round(discriminator_loss1, 4)}, '
+                  f'discriminator2_loss={np.round(discriminator_loss2, 4)}, '
+                  f'generator_loss={np.round(generator_loss, 4)}')
 
     def save_results(self, status, g_model, n_samples=10):
         """
@@ -322,27 +303,22 @@ class Gan:
         :param n_samples: the number of samples to generate as a plot
         :return:
         """
-        # devise name
         gen_shape = g_model.output_shape
-        name = '%03dx%03d-%s' % (gen_shape[1], gen_shape[2], status)
-        # generate images
-        X, _ = self.generate_fake_samples(g_model, n_samples)
-        # normalize pixel values to the range [0,1]
-        X = (X - X.min()) / (X.max() - X.min())
+        name = f'{gen_shape[1]}x{gen_shape[2]}-{status}'
+        images, _ = self.generate_fake_samples(g_model, n_samples)
+        images = self.normalize_images(images)
         for i in range(n_samples):
             my_dpi = 100
             fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
 
-            plt.imshow(X[i][:, :, 0], cmap="Greys")
+            plt.imshow(images[i][:, :, 0], cmap="Greys")
             plt.axis('off')
 
             fig.savefig(os.path.join(self.imageSavePath, f"plot_{name}_#{i}.png"),
-                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
-                        dpi=my_dpi)
+                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]), dpi=my_dpi)
             plt.close()
 
-        # save the generator model
         g_model.save(os.path.join(self.modelSavePath, f"generator_{name}.h5"))
 
     def train(self):
@@ -350,44 +326,28 @@ class Gan:
         train the combined architecture
         """
         # fit the baseline model
-        g_normal, d_normal, gan_normal = self.g_models[0][0], self.d_models[0][0], self.gan_models[0][0]
+        generator_normal, discriminator_normal, gan_normal = self.generator_architectures[0][0], self.discriminator_architectures[0][0], self.gan_models[0][0]
         # update the image shape
-        gen_shape = g_normal.output_shape
+        gen_shape = generator_normal.output_shape
         self.dataGenerator.currentImgShape = gen_shape[1:]
         # train normal or straight-through models
-        self.train_stage(g_normal, d_normal, gan_normal, self.e_norm[0], self.n_batch[0])
-        self.save_results('tuned', g_normal)
+        self.train_stage(generator_normal, discriminator_normal, gan_normal, self.e_norm[0], self.batch_sizes[0])
+        self.save_results('tuned', generator_normal)
         # process each level of growth
-        for i in range(1, len(self.g_models)):
+        for i in range(1, len(self.generator_architectures)):
             # retrieve models for this level of growth
-            [g_normal, g_fadein] = self.g_models[i]
-            [d_normal, d_fadein] = self.d_models[i]
+            [generator_normal, generator_fadein] = self.generator_architectures[i]
+            [discriminator_normal, discriminator_fadein] = self.discriminator_architectures[i]
             [gan_normal, gan_fadein] = self.gan_models[i]
             # scale dataset to appropriate size
-            gen_shape = g_normal.output_shape
+            gen_shape = generator_normal.output_shape
             self.dataGenerator.currentImgShape = gen_shape[1:]
             # train fade-in models for next level of growth
-            self.train_stage(g_fadein, d_fadein, gan_fadein, self.e_fadein[i], self.n_batch[i], True)
-            self.save_results('faded', g_fadein)
+            self.train_stage(generator_fadein, discriminator_fadein, gan_fadein, self.e_fadein[i], self.batch_sizes[i], True)
+            self.save_results('faded', generator_fadein)
             # train normal or straight-through models
-            self.train_stage(g_normal, d_normal, gan_normal, self.e_norm[i], self.n_batch[i])
-            self.save_results('tuned', g_normal)
-
-    def generate_and_save_images(self, epoch, test_input):
-        predictions = self.generator(test_input, training=False)
-
-        for i in range(predictions.shape[0]):
-            my_dpi = 100
-            fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
-            ax.set_position([0, 0, 1, 1])
-
-            plt.imshow(np.asarray(predictions[i, :, :, 0] * 127.5 + 127.5, dtype='uint8'), cmap='gray')
-            plt.axis('off')
-
-            fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
-                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
-                        dpi=my_dpi)
-            plt.close()
+            self.train_stage(generator_normal, discriminator_normal, gan_normal, self.e_norm[i], self.batch_sizes[i])
+            self.save_results('tuned', generator_normal)
 
     @staticmethod
     def update_fadein(models, step, n_steps):
@@ -407,3 +367,7 @@ class Gan:
     @staticmethod
     def wasserstein_loss(y_true, y_pred):
         return backend.mean(y_true * y_pred)
+
+    @staticmethod
+    def normalize_images(images):
+        return (images - images.min()) / (images.max() - images.min())
