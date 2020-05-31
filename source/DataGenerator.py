@@ -2,7 +2,6 @@ import numpy as np
 import os
 from PIL import Image
 from tensorflow import float32, convert_to_tensor
-import matplotlib.pyplot as plt
 from skimage.transform import resize
 
 

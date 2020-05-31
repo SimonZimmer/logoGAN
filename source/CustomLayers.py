@@ -34,7 +34,7 @@ class MinibatchStdev(Layer):
 		super(MinibatchStdev, self).__init__(**kwargs)
 
 	# perform the operation
-	def call(self, inputs):
+	def call(self, inputs, **kwargs):
 		# calculate the mean value for each pixel across channels
 		mean = backend.mean(inputs, axis=0, keepdims=True)
 		# calculate the squared differences between pixel values and mean
@@ -71,7 +71,7 @@ class PixelNormalization(Layer):
 		super(PixelNormalization, self).__init__(**kwargs)
 
 	# perform the operation
-	def call(self, inputs):
+	def call(self, inputs, **kwargs):
 		# calculate square pixel values
 		values = inputs ** 2.0
 		# calculate the mean pixel values

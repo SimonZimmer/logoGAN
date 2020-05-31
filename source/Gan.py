@@ -1,8 +1,7 @@
-from tensorflow.keras.layers import Dense, Input, AveragePooling2D, UpSampling2D, LeakyReLU, Flatten, Reshape, Conv2D, Conv2DTranspose, BatchNormalization
+from tensorflow.keras.layers import Dense, Input, AveragePooling2D, UpSampling2D, LeakyReLU, Flatten, Reshape, Conv2D
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import BinaryCrossentropy
 from matplotlib.transforms import Bbox
 from tensorflow.keras import backend
 from tensorflow.keras.constraints import max_norm
@@ -126,8 +125,6 @@ class Gan:
         # define model
         model = Model(in_image, out_class)
         # compile model
-        #print("discriminator model")
-        #model.summary()
         model.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # store model
         model_list.append([model, model])
@@ -175,9 +172,6 @@ class Gan:
         # define model
         model2 = Model(old_model.input, merged)
 
-        #print("generator models:")
-        #model1.summary()
-        #model2.summary()
         return [model1, model2]
 
     # define generator models
