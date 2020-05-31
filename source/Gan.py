@@ -309,9 +309,12 @@ class Gan:
             y_real2 = np.ones((n_batch, 1))
             g_loss = gan_model.train_on_batch(z_input, y_real2)
             # summarize loss on this batch
-            print('>%d, d1=%.3f, d2=%.3f g=%.3f' % (i + 1, d_loss1, d_loss2, g_loss))
+            print(f'scaling stage {self.dataGenerator.currentImgShape[:2]}, '
+                  f'step {i+1}/{n_steps}, discriminator1_loss={np.round(d_loss1, 4)}, '
+                  f'discriminator2_loss={np.round(d_loss2, 4)}, '
+                  f'generator_loss={np.round(g_loss, 4)}')
 
-    def save_results(self, status, g_model, n_samples=25):
+    def save_results(self, status, g_model, n_samples=10):
         """
         saves the current state of the model as a .h5 file and a result plot as a .png file
         :param status: a string representing the type of result ("tuned", "faded")
@@ -326,15 +329,19 @@ class Gan:
         X, _ = self.generate_fake_samples(g_model, n_samples)
         # normalize pixel values to the range [0,1]
         X = (X - X.min()) / (X.max() - X.min())
-        # plot real images
-        square = int(sqrt(n_samples))
         for i in range(n_samples):
-            plt.subplot(square, square, 1 + i)
-            plt.axis('off')
+            my_dpi = 100
+            fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
+            ax.set_position([0, 0, 1, 1])
+
             plt.imshow(X[i][:, :, 0], cmap="Greys")
-        # save plot to file
-        plt.savefig(os.path.join(self.imageSavePath, f"plot_{name}.png"))
-        plt.close()
+            plt.axis('off')
+
+            fig.savefig(os.path.join(self.imageSavePath, f"plot_{name}_#{i}.png"),
+                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
+                        dpi=my_dpi)
+            plt.close()
+
         # save the generator model
         g_model.save(os.path.join(self.modelSavePath, f"generator_{name}.h5"))
 
