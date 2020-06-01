@@ -7,13 +7,14 @@ from tensorflow.keras import backend
 from tensorflow.keras.constraints import max_norm
 import os
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 from DataGenerator import DataGenerator
 from CustomLayers import *
 
 
 class Gan:
-    def __init__(self, datasetPath, imgDims):
+    def __init__(self, datasetPath, imgDims, learning_rate=0.0001):
         """
         defines a progressively growing generative adversarial neural network
         :param datasetPath: path to the dataset containing grayscale .jpg images
@@ -28,6 +29,7 @@ class Gan:
         if not os.path.isdir(self.modelSavePath):
             os.mkdir(self.modelSavePath)
 
+        self.learning_rate = learning_rate
         self.num_scaling_stages = 6
         self.latent_dim = 100
         self.discriminator_architectures = self.define_discriminator(self.num_scaling_stages)
@@ -69,7 +71,7 @@ class Gan:
         # define straight-through model
         model1 = Model(inputLayer, discriminator)
         # compile model
-        model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # downsample the new larger image
         downsample = AveragePooling2D()(inputLayer)
         # connect old input processing to downsampled new input
@@ -83,7 +85,7 @@ class Gan:
         # define straight-through model
         model2 = Model(inputLayer, discriminator)
         # compile model
-        model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         return [model1, model2]
 
     def define_discriminator(self, num_scale_stages, input_shape=(4, 4, 1)):
@@ -116,7 +118,7 @@ class Gan:
         # define model
         model = Model(in_image, out_class)
         # compile model
-        model.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # store model
         model_list.append([model, model])
         # create submodels
@@ -223,13 +225,13 @@ class Gan:
             model1 = Sequential()
             model1.add(g_models[0])
             model1.add(d_models[0])
-            model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
+            model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
             # fade-in model
             d_models[1].trainable = False
             model2 = Sequential()
             model2.add(g_models[1])
             model2.add(d_models[1])
-            model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=0.001, beta_1=0, beta_2=0.99, epsilon=10e-8))
+            model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
             # store
             model_list.append([model1, model2])
         return model_list
@@ -241,9 +243,8 @@ class Gan:
         :return: a numpy array representing a single batch, a vector representing the annotation
         """
         batch = self.dataGenerator.getBatch(batchSize)
-        labels = np.full((batchSize, 1), 0.9)
-        plt.imshow(batch[1, :, :, 0])
-        plt.savefig("test.png")
+        labels = np.ones((batchSize, 1))
+        labels = labels - 0.3 + (np.random.random(labels.shape) * 0.5)
         return batch, labels
 
     def generate_latent_points(self, n_samples):
@@ -265,7 +266,8 @@ class Gan:
         """
         latent_input = self.generate_latent_points(batch_size)
         images = generator.predict(latent_input)
-        labels = np.full((batch_size, 1), -0.9)
+        labels = -np.ones((batch_size, 1))
+        labels = labels + np.random.random(labels.shape) * 0.3
         return images, labels
 
     def train_stage(self, g_model, d_model, gan_model, n_epochs, batch_size, fadein=False):
@@ -312,7 +314,7 @@ class Gan:
             fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
             ax.set_position([0, 0, 1, 1])
 
-            plt.imshow(images[i][:, :, 0], cmap="Greys")
+            plt.imshow(images[i][:, :, 0], cmap="gray")
             plt.axis('off')
 
             fig.savefig(os.path.join(self.imageSavePath, f"plot_{name}_#{i}.png"),
@@ -370,4 +372,6 @@ class Gan:
 
     @staticmethod
     def normalize_images(images):
-        return (images - images.min()) / (images.max() - images.min())
+        images = (images - images.min()) / (images.max() - images.min())
+        images *= 255
+        return np.asarray(images, dtype='uint8')
