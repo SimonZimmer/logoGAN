@@ -26,13 +26,16 @@ class DataGenerator:
         del memmap
         print('done.')
 
-    def getBatch(self, batchSize):
+    def getBatch(self, batchSize, add_noise=True):
         memmap = np.memmap(self.memmapPath, dtype='float32', mode='r', shape=(*self.imgDims, self.numFiles))
         indices = np.random.randint(0, self.numFiles-1, size=batchSize)
         imgArrays = []
         for i in indices:
             img = memmap[:, :, :, i]
             img = resize(img, self.currentImgShape, 0)
+            if add_noise:
+                noise = 0.05 * (2 * np.random.normal(0, 1, self.currentImgShape) - 1)
+                img = img + noise
             imgArrays.append(img)
         batch = np.stack(imgArrays, axis=0)
         batch = convert_to_tensor(batch, dtype=float32)
