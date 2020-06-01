@@ -35,10 +35,10 @@ class Gan:
         self.discriminator_architectures = self.define_discriminator(self.num_scaling_stages)
         self.generator_architectures = self.define_generator(self.num_scaling_stages)
         self.gan_models = self.define_composite(self.discriminator_architectures, self.generator_architectures)
-        self.batch_sizes = [16, 16, 16, 8, 4, 4]
-        self.num_epochs = [5, 8, 8, 10, 10, 10]
-        self.e_fadein = self.num_epochs
-        self.e_norm = self.num_epochs
+        self.batch_sizes = [256, 256, 256, 128, 64, 64]
+        self.n_epochs = [5, 8, 8, 10, 10, 10]
+        self.e_fadein = self.n_epochs
+        self.e_norm = self.n_epochs
 
     def add_discriminator_block(self, old_model, n_input_layers=3):
         """
