@@ -14,7 +14,7 @@ from CustomLayers import *
 
 
 class Gan:
-    def __init__(self, datasetPath, imgDims, learning_rate=0.0001):
+    def __init__(self, datasetPath, imgDims, discriminator_learning_rate=0.0004, generator_learning_rate=0.0001):
         """
         defines a progressively growing generative adversarial neural network
         :param datasetPath: path to the dataset containing grayscale .jpg images
@@ -29,14 +29,15 @@ class Gan:
         if not os.path.isdir(self.modelSavePath):
             os.mkdir(self.modelSavePath)
 
-        self.learning_rate = learning_rate
+        self.discriminator_learning_rate = discriminator_learning_rate
+        self.generator_learning_rate = generator_learning_rate
         self.num_scaling_stages = 6
         self.latent_dim = 100
         self.discriminator_architectures = self.define_discriminator(self.num_scaling_stages)
         self.generator_architectures = self.define_generator(self.num_scaling_stages)
         self.gan_models = self.define_composite(self.discriminator_architectures, self.generator_architectures)
-        self.batch_sizes = [2, 2, 2, 2, 2, 2]
-        self.n_epochs = [1, 1, 1, 1, 1, 1]
+        self.batch_sizes = [128, 128, 128, 64, 32, 32]
+        self.n_epochs = [1, 5, 10, 15, 20, 20]
         self.e_fadein = self.n_epochs
         self.e_norm = self.n_epochs
 
@@ -71,7 +72,7 @@ class Gan:
         # define straight-through model
         model1 = Model(inputLayer, discriminator)
         # compile model
-        model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.discriminator_learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # downsample the new larger image
         downsample = AveragePooling2D()(inputLayer)
         # connect old input processing to downsampled new input
@@ -85,7 +86,7 @@ class Gan:
         # define straight-through model
         model2 = Model(inputLayer, discriminator)
         # compile model
-        model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.discriminator_learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         return [model1, model2]
 
     def define_discriminator(self, num_scale_stages, input_shape=(4, 4, 1)):
@@ -118,7 +119,7 @@ class Gan:
         # define model
         model = Model(in_image, out_class)
         # compile model
-        model.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
+        model.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.discriminator_learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
         # store model
         model_list.append([model, model])
         # create submodels
@@ -225,13 +226,13 @@ class Gan:
             model1 = Sequential()
             model1.add(g_models[0])
             model1.add(d_models[0])
-            model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
+            model1.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.generator_learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
             # fade-in model
             d_models[1].trainable = False
             model2 = Sequential()
             model2.add(g_models[1])
             model2.add(d_models[1])
-            model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
+            model2.compile(loss=self.wasserstein_loss, optimizer=Adam(lr=self.generator_learning_rate, beta_1=0, beta_2=0.99, epsilon=10e-8))
             # store
             model_list.append([model1, model2])
         return model_list
