@@ -9,4 +9,5 @@ generated_images
 *.png
 *.h5
 *.dat
+*.tar.gz
 
