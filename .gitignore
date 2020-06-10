@@ -8,6 +8,7 @@ savedModels
 generated_images
 *.png
 *.h5
+*ipynb
 *.dat
 *.tar.gz
 
