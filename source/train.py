@@ -1,7 +1,7 @@
 from Gan import Gan
 
 gan = Gan("../dataset/train",
-          imgDims=(28, 28, 1),
+          imgDims=(128, 128, 1),
           batchSize=64,
           noiseDim=100)
 

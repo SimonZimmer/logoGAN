@@ -39,6 +39,8 @@ RUN $APT_INSTALL libsndfile1 -y \
     Pillow \
     matplotlib
 
+RUN apt-get update && apt-get install -y ffmpeg
+
 # Config & cleanup
 RUN ldconfig \
   && apt-get clean \

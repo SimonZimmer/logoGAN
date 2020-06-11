@@ -1,32 +1,28 @@
-from tensorflow.keras.layers import Dense, Input, LeakyReLU, Flatten, Reshape, Dropout, Conv2D, Conv2DTranspose, BatchNormalization
-from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Dense, LeakyReLU, Flatten, Reshape, Dropout, Conv2D, Conv2DTranspose, BatchNormalization
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow import random, ones_like, zeros_like, GradientTape, function
 from matplotlib.transforms import Bbox
-from tensorflow import io
-import tensorflow as tf
 import os
 import time
 import sys
 import numpy as np
-import PIL.Image as Image
 import matplotlib.pyplot as plt
 sys.path.append("/")
 from DataGenerator import DataGenerator
 
 
 class Gan:
-    def __init__(self, datasetPath, imgDims, batchSize, noiseDim):
+    def __init__(self, datasetPath="../dataset/train", imgDims=(128, 128, 1), batchSize=16, noiseDims=100, train=True):
         self.datasetPath = datasetPath
-
-        self.dataGenerator = DataGenerator(imgDims, datasetPath)
-
+        if train:
+            self.dataGenerator = DataGenerator(imgDims, datasetPath)
         self.numFiles = len(os.listdir(datasetPath))
         self.batchSize = batchSize
         self.stepsPerEpoch = int(self.numFiles / self.batchSize)
 
-        self.noiseDim = noiseDim
+        self.noiseDim = noiseDims
         self.imgDims = imgDims
 
         self.imageSavePath = '../generated_images'
@@ -92,21 +88,36 @@ class Gan:
         self.generator.save(os.path.join(self.modelSavePath, f"generator_at_epoch{epoch}.h5"))
         self.discriminator.save(os.path.join(self.modelSavePath, f"discriminator_at_epoch{epoch}.h5"))
 
-    def generate_and_save_images(self, epoch, test_input):
-        predictions = self.generator(test_input, training=False)
+    def save_random_images(self, epoch, num_samples, imageSavePath):
+        seed = random.normal([num_samples, self.noiseDim])
 
-        for i in range(predictions.shape[0]):
-            my_dpi = 100
-            fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
-            ax.set_position([0, 0, 1, 1])
+        for i in range(num_samples):
+            file_path = os.path.join(imageSavePath, f'image_at_epoch_{epoch}_#{i}.png')
+            image = self.generate_image(seed[i])
+            self.save_image(image, file_path)
 
-            plt.imshow(np.asarray(predictions[i, :, :, 0] * 127.5 + 127.5, dtype='uint8'), cmap='gray')
-            plt.axis('off')
+    def generate_image(self, primer):
+        prediction = self.generator(primer, training=False)
+        image = np.asarray(prediction * 127.5 + 127.5, dtype='uint8')
 
-            fig.savefig(os.path.join(self.imageSavePath, f'image_at_epoch_{epoch}_#{i}.png'),
-                        bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
-                        dpi=my_dpi)
-            plt.close()
+        return image
+
+    def save_image(self, image, file_path):
+        image = image[0, :, :, 0]
+        my_dpi = 128
+        fig, ax = plt.subplots(1, figsize=(self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi), dpi=my_dpi)
+        ax.set_position([0, 0, 1, 1])
+
+        plt.imshow(image, cmap='gray')
+        plt.axis('off')
+
+        fig.savefig(file_path,
+                    bbox_inches=Bbox([[0, 0], [self.imgDims[0] / my_dpi, self.imgDims[0] / my_dpi]]),
+                    dpi=my_dpi)
+        plt.close()
+
+    def loadGenerator(self, filePath):
+        self.generator.load_weights(filePath)
 
     def discriminator_loss(self, real_output, fake_output):
         real_loss = self.cross_entropy(ones_like(real_output), real_output)
@@ -138,10 +149,6 @@ class Gan:
             zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
     def train(self, epochs, checkpointFrequency):
-        num_examples_to_generate = 5
-
-        seed = random.normal([num_examples_to_generate, self.noiseDim])
-
         for epoch in range(epochs):
             start = time.time()
 
@@ -151,9 +158,9 @@ class Gan:
                 self.train_step(image_batch)
 
             if (epoch + 1) % checkpointFrequency == 0:
-                self.generate_and_save_images(epoch + 1, seed)
+                self.save_random_images(epoch + 1, 5, self.imageSavePath)
                 self.saveModel(epoch + 1)
 
             print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
 
-        self.generate_and_save_images(epochs, seed)
+        self.save_random_images(epochs, num_samples=5, imageSavePath=self.imageSavePath)
