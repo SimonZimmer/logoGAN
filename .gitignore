@@ -11,4 +11,7 @@ generated_images
 *ipynb
 *.dat
 *.tar.gz
+*.mov
+*.mp4
+*.avi
 
