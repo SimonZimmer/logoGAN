@@ -1,9 +1,14 @@
 import os
 from Gan import Gan
 import numpy as np
+import sys
+import PIL.Image as Image
+sys.path.append("../ThirdParty/super-resolution")
+from model.srgan import generator
+from model import resolve_single
 
 
-def createVideo(contrast, num_cycles):
+def createVideo(contrast, num_cycles, sr_model):
     video_dir = "../generated_video"
     frames_dir = os.path.join(video_dir, "frames")
     if not os.path.isdir(video_dir):
@@ -25,9 +30,11 @@ def createVideo(contrast, num_cycles):
             print(f"saving image for cycle {cycle} and vector {vector} in {image_path}")
             model.save_image(image, image_path)
 
+            upscale_image(image_path, sr_model)
+
         old_seed = new_seed
 
-    os.system("ffmpeg -y -framerate 25 -i ../generated_video/frames/test_%03d.png ../generated_video/latentSpaceNavigation.mov")
+    os.system("ffmpeg -y -framerate 25 -i ../generated_video/frames/test_%03d.png ../generated_video/latentSpaceNavigation_0.18.mov")
 
 
 def interpolate_points(p1, p2, n_steps=100):
@@ -39,4 +46,16 @@ def interpolate_points(p1, p2, n_steps=100):
     return np.asarray(vectors)
 
 
-createVideo(2, 1)
+def upscale_image(filePath, model):
+    image = np.asarray(Image.open(filePath).convert('RGB'))
+    upscaled = resolve_single(model, image)
+    upscaled_resized = Image.fromarray(np.asarray(upscaled)).resize((256, 256))
+    upscaled_resized = np.asarray(upscaled_resized)
+    upscaled_second = resolve_single(model, upscaled_resized)
+    image_processed = Image.fromarray(np.asarray(upscaled_second)).convert('L')
+    image_processed.save(filePath)
+
+
+sr_model = generator()
+sr_model.load_weights('../ThirdParty/super-resolution/weights/srgan/gan_generator.h5')
+createVideo(1.8, 20, sr_model)
