@@ -34,7 +34,7 @@ def createVideo(contrast, num_cycles, sr_model):
 
         old_seed = new_seed
 
-    os.system("ffmpeg -y -framerate 25 -i ../generated_video/frames/test_%03d.png ../generated_video/latentSpaceNavigation_0.18.mov")
+    os.system(f"ffmpeg -y -framerate 25 -i ../generated_video/frames/test_%03d.png ../generated_video/latentSpaceNavigation_{contrast}.mov")
 
 
 def interpolate_points(p1, p2, n_steps=100):
@@ -56,6 +56,25 @@ def upscale_image(filePath, model):
     image_processed.save(filePath)
 
 
+def generate_random_image_set(num_images):
+    random_image_dir = "../random_images"
+    if not os.path.isdir(random_image_dir):
+        os.mkdir(random_image_dir)
+    model = Gan(train=False)
+    model.loadGenerator('../deploy_models/generator_at_epoch300.h5')
+
+    for image_index in range(num_images):
+        primer = np.random.uniform(-2, 2, (1, 100))
+        image = model.generate_image(primer)
+        primerText = 0
+        for num in range(primer.shape[1]):
+            primerText += primer[0, num]
+        image_path = os.path.join(random_image_dir, f"random_image_{str(primerText)}.png")
+        model.save_image(image, image_path)
+        upscale_image(image_path, sr_model)
+
+
 sr_model = generator()
 sr_model.load_weights('../ThirdParty/super-resolution/weights/srgan/gan_generator.h5')
-createVideo(1.8, 20, sr_model)
+createVideo(1.8, 200, sr_model)
+
